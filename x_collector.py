@@ -9,7 +9,7 @@ from typing import Optional, List
 import urllib.parse
 from dateutil import parser as date_parser
 
-# Structured logging
+# Configure structured logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -46,6 +46,7 @@ class MediaPulseXCollector:
 
     @staticmethod
     def get_sentiment(text: str) -> tuple[str, float]:
+        """Calculates polarity score and sentiment label using TextBlob."""
         score = TextBlob(text).sentiment.polarity
         label = "Positive" if score > 0 else ("Negative" if score < 0 else "Neutral")
         return label, round(score, 4)
@@ -56,13 +57,13 @@ class MediaPulseXCollector:
         if not raw_ts:
             return None
         
-        # 1. Standard Twitter string format
+        # 1. Standard Twitter string format: "Tue Sep 08 14:11:05 +0000 2026"
         try:
             return datetime.strptime(raw_ts, "%a %b %d %H:%M:%S +0000 %Y")
         except (ValueError, TypeError):
             pass
 
-        # 2. ISO 8601 string (e.g. 2026-09-08T14:11:05Z)
+        # 2. ISO 8601 string or dateutil flexible parsing (e.g., "2026-09-08T14:11:05Z")
         try:
             return date_parser.parse(raw_ts)
         except Exception:
@@ -75,6 +76,7 @@ class MediaPulseXCollector:
             return None
 
     async def _batch_save(self, records: list[tuple]):
+        """Executes bulk insertion into database."""
         if not records or not self.pool:
             return
         async with self.pool.acquire() as conn:
@@ -83,7 +85,7 @@ class MediaPulseXCollector:
                 INSERT INTO social_media_feeds
                     (tweet_id, content, author, created_at,
                      sentiment, sentiment_score, follower_count, user_location)
-                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                 ON CONFLICT (tweet_id) DO NOTHING
                 """,
                 records
@@ -96,6 +98,7 @@ class MediaPulseXCollector:
         params: dict,
         attempt: int = 0
     ) -> Optional[dict]:
+        """Fetches page data from twitterapi.io with exponential backoff on rate limits."""
         try:
             response = await client.get(
                 self.BASE_URL,
@@ -109,7 +112,7 @@ class MediaPulseXCollector:
 
             if response.status_code == 429:  # Rate limited
                 wait = 2 ** attempt
-                logger.warning(f"Rate limited. Retrying in {wait}s (attempt {attempt+1}/{self.MAX_RETRIES})")
+                logger.warning(f"Rate limited. Retrying in {wait}s (attempt {attempt + 1}/{self.MAX_RETRIES})")
                 await asyncio.sleep(wait)
                 if attempt < self.MAX_RETRIES:
                     return await self._fetch_page(client, params, attempt + 1)
@@ -125,7 +128,7 @@ class MediaPulseXCollector:
             return None
 
     async def run_ingestion(self, keywords: List[str]):
-        """Runs ingestion across list of targeted search query strings."""
+        """Runs ingestion across list of target search query chunks."""
         await self.init_pool()
         total_overall = 0
 
@@ -139,7 +142,7 @@ class MediaPulseXCollector:
                     params = {
                         "query": keyword,
                         "queryType": "Latest",
-                        "count": 100
+                        "count": self.BATCH_SIZE
                     }
                     if next_cursor:
                         params["cursor"] = next_cursor
@@ -157,7 +160,7 @@ class MediaPulseXCollector:
                     for tweet in tweets:
                         try:
                             text = tweet.get("text", "")
-                            user = tweet.get("author", {})
+                            user = tweet.get("author", {}) or tweet.get("user", {})
                             sentiment, score = self.get_sentiment(text)
                             raw_ts = tweet.get("createdAt", "") or tweet.get("created_at", "")
                             created_at = self.parse_timestamp(str(raw_ts))
@@ -165,11 +168,11 @@ class MediaPulseXCollector:
                             batch.append((
                                 str(tweet["id"]),
                                 text,
-                                str(user.get("id", "")),
+                                str(user.get("id", "") or user.get("userName", "")),
                                 created_at,
                                 sentiment,
                                 score,
-                                user.get("followersCount", 0),
+                                user.get("followersCount", 0) or user.get("followers_count", 0),
                                 user.get("location", "Unknown")
                             ))
                         except KeyError as e:
@@ -191,7 +194,7 @@ class MediaPulseXCollector:
         logger.info(f"=== Ingestion process completed. Total overall tweets saved: {total_overall} ===")
 
 
-# Chunked Search Target Queries (prevents twitterapi.io 0-result query failure)
+# Targeted query chunks (prevents twitterapi.io 0-result query failure)
 TARGETS = [
     "(#TechInAfrica OR #AfricaTech OR #NairobiTech OR #LagosTech OR #CapeTownTech) -filter:retweets lang:en",
     "(#AfricanStartups OR #AfricanSummit OR #AI OR #AMR) -filter:retweets lang:en",
@@ -200,14 +203,15 @@ TARGETS = [
     "(@MastercardAfricacentreforinnovativeteachingandlearning OR @MastercardAfricascholars) -filter:retweets lang:en"
 ]
 
-if __name__ == "__main__":
+
+async def main():
     key = os.getenv("X_BEARER_TOKEN")
     raw_db_url = os.getenv("DATABASE_URL")
 
     if not key or not raw_db_url:
         raise ValueError("FATAL: Missing environment variables (X_BEARER_TOKEN, DATABASE_URL)")
 
-    # Parse and encode connection password if special characters exist
+    # Parse and encode connection password safely if special characters exist
     parsed = urllib.parse.urlparse(raw_db_url)
     if parsed.password:
         encoded_password = urllib.parse.quote_plus(parsed.password)
@@ -219,8 +223,10 @@ if __name__ == "__main__":
         db_url = raw_db_url
 
     collector = MediaPulseXCollector(api_key=key, db_url=db_url)
-    
     try:
-        asyncio.run(collector.run_ingestion(keywords=TARGETS))
+        await collector.run_ingestion(keywords=TARGETS)
     finally:
-        asyncio.run(collector.close_pool())
+        await collector.close_pool()
+
+if __name__ == "__main__":
+    asyncio.run(main())
