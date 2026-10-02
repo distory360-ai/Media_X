@@ -1,29 +1,33 @@
-name: 4-Hour Ingestion
+name: MediaPulse X listening
+
 on:
   schedule:
-    - cron: '0 */4 * * *'
+    - cron: "23 */4 * * *"      # every 4 hours (UTC). Each run only fetches what is new since the last one.
   workflow_dispatch:
 
+concurrency:
+  group: mediapulse-x
+  cancel-in-progress: false
+
 jobs:
-  run-task:
-    runs-on: ubuntu-latest
+  collect:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}      # twitterapi.io key
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}          # Neon connection string
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # optional — leave the secret unset to skip alerts
+      X_MAX_TWEETS_PER_RUN: "6000"     # hard cost cap per run (~$0.90)
+      X_MAX_PAGES_PER_QUERY: "15"
+      X_INITIAL_LOOKBACK_HOURS: "24"
+      # BRANDS_FILE: brands.json       # uncomment after adding a brands.json to the repo
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
-
-      - name: Install Dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          python -m textblob.download_corpora
-
-      - name: Execute Enrichment Script
-        env:
-          X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          python-version: "3.11"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Collect X mentions
         run: python x_collector.py
