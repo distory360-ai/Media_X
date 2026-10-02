@@ -1,9 +1,16 @@
+
 name: MediaPulse X listening
 
 on:
-  schedule:
-    - cron: "23 */4 * * *"      # every 4 hours (UTC). Each run only fetches what is new since the last one.
+  # schedule:
+  #   - cron: "23 */6 * * *"      # every 6 hours (UTC); each run fetches only what is new since the last one
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run = show searches + cost, no API calls · collect = fetch tweets"
+        type: choice
+        options: [dry-run, collect]
+        default: dry-run
 
 concurrency:
   group: mediapulse-x
@@ -14,13 +21,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
-      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}      # twitterapi.io key
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}          # Neon connection string
-      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # optional — leave the secret unset to skip alerts
-      X_MAX_TWEETS_PER_RUN: "6000"     # hard cost cap per run (~$0.90)
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}        # twitterapi.io API key
+      APIFY_TOKEN: ${{ secrets.APIFY_TOKEN }}              # optional backup when twitterapi.io refuses
+      X_BACKEND: "auto"                 # auto = twitterapi.io first, Apify if it refuses | twitterapi | apify
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}            # Neon connection string
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}  # optional alerts
+      X_MAX_TWEETS_PER_RUN: "2000"      # hard cap per run: ≈ $0.30 on twitterapi.io, ≈ $0.80 on Apify
       X_MAX_PAGES_PER_QUERY: "15"
+      APIFY_X_MAX_ITEMS: "300"
       X_INITIAL_LOOKBACK_HOURS: "24"
-      # BRANDS_FILE: brands.json       # uncomment after adding a brands.json to the repo
+      # BRANDS_FILE: brands.json        # uncomment after adding a brands.json (extra brands, no code edits)
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -30,4 +40,9 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
       - name: Collect X mentions
-        run: python x_collector.py
+        run: |
+          if [ "${{ github.event.inputs.mode }}" = "dry-run" ]; then
+            python x_collector.py --dry-run
+          else
+            python x_collector.py
+          fi
