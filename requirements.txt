@@ -1,6 +1,5 @@
-httpx
-asyncpg
-textblob
-psycopg2-binary
-requests
-python-dateutil
+asyncpg>=0.29
+httpx>=0.27
+python-dateutil>=2.8
+textblob>=0.18
+py3langid>=0.3
