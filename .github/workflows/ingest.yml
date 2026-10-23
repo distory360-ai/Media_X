@@ -2,8 +2,8 @@
 name: MediaPulse X listening
 
 on:
-  # schedule:
-  #   - cron: "23 */6 * * *"      # every 6 hours (UTC); each run fetches only what is new since the last one
+  schedule:
+    - cron: "23 */6 * * *"      # every 6 hours (UTC); each run fetches only what is new since the last one
   workflow_dispatch:
     inputs:
       mode:
