@@ -83,10 +83,11 @@ COST_PER_1K = {"twitterapi": 0.15, "apify": 0.40}          # USD per 1,000 tweet
 # ─────────────────────────────────────────────────────────────────────────────
 BRANDS: dict[str, dict] = {
     # ── clients ──
-    "Mastercard Foundation": {"terms": ["Mastercard Foundation", "MastercardFdn", "Mastercard Foundation Scholars"],
+    "Mastercard Foundation": {"terms": ["Mastercard Foundation", "MastercardFdn", "Mastercard Foundation Scholars",
+                                        "Fondation Mastercard", "Fundação Mastercard", "مؤسسة ماستركارد"],
                               "handles": ["MastercardFdn"], "hashtags": ["MastercardFoundation"],  # verify
                               "country": "AF", "client": True},
-    "Safaricom": {"terms": ["Safaricom", "M-Pesa", "MPesa", "M-PESA", "Fuliza", "Bonga points"],
+    "Safaricom": {"terms": ["Safaricom", "M-Pesa", "MPesa", "M-PESA", "Fuliza", "Bonga points", "ሳፋሪኮም"],
                   "handles": ["SafaricomPLC", "Safaricom_Care"], "hashtags": ["Safaricom", "MPesa"],
                   "country": "KE", "client": True},
     "Equity Group": {"terms": ["Equity Bank", "Equity Group", "EquityBank", "Equitel", "Equity Afia"],
@@ -121,7 +122,7 @@ BRANDS: dict[str, dict] = {
     # ── Pan-African / Nigeria / South Africa / Ethiopia ──
     "MTN": {"terms": ["MTN", "MoMo", "MTN MoMo"], "handles": ["MTNGroup", "MTNNG"], "hashtags": ["MTN"],
             "country": "AF"},
-    "Dangote": {"terms": ["Dangote", "Dangote Group", "Dangote Refinery", "Dangote Cement"],
+    "Dangote": {"terms": ["Dangote", "Dangote Group", "Dangote Refinery", "Dangote Cement", "دانغوتي"],
                 "handles": ["DangoteGroup"], "hashtags": ["Dangote"], "country": "NG"},
     "Absa": {"terms": ["Absa", "Absa Bank"], "handles": ["AbsaSouthAfrica", "AbsaKenya"],          # verify
              "hashtags": [], "country": "AF"},
@@ -132,8 +133,8 @@ BRANDS: dict[str, dict] = {
     "Access Bank": {"terms": ["Access Bank"], "handles": ["myaccessbank"], "hashtags": [], "country": "NG"},
     "GTCO": {"terms": ["GTBank", "GTCO", "Guaranty Trust"], "handles": ["gtbank"], "hashtags": [], "country": "NG"},
     "Zenith Bank": {"terms": ["Zenith Bank"], "handles": ["ZenithBank"], "hashtags": [], "country": "NG"},
-    "Ecobank": {"terms": ["Ecobank"], "handles": ["gotoecobank"], "hashtags": [], "country": "AF"},  # verify
-    "Jumia": {"terms": ["Jumia"], "handles": ["JumiaGroup"], "hashtags": [], "country": "AF"},
+    "Ecobank": {"terms": ["Ecobank", "إيكوبنك"], "handles": ["gotoecobank"], "hashtags": [], "country": "AF"},  # verify
+    "Jumia": {"terms": ["Jumia", "جوميا"], "handles": ["JumiaGroup"], "hashtags": [], "country": "AF"},
     "Ethio Telecom": {"terms": ["Ethio Telecom", "ethiotelecom", "telebirr", "ኢትዮ ቴሌኮም", "ቴሌብር"],
                       "handles": ["ethiotelecom"], "hashtags": ["telebirr"], "country": "ET"},
 }
